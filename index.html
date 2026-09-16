@@ -72,6 +72,17 @@
       outline: 3px solid #6366f1;
       background-color: #e0e7ff !important;
     }
+
+    /* 모바일 앱 뷰에서도 웹처럼 가로 3분단 형태가 유지되도록 반응형 미세 조정 */
+    @media (max-width: 640px) {
+      .seat-card {
+        min-height: 64px !important;
+        padding: 6px !important;
+      }
+      .seat-student-name {
+        font-size: 0.78rem !important;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-700">
@@ -135,7 +146,7 @@
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-start">
     
     <!-- LEFT SIDEBAR: Student Management & Input Panel (no-print) -->
-    <aside class="w-full lg:w-80 flex-shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col gap-5 no-print">
+    <aside class="w-full lg:w-80 flex-shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 no-print order-2 lg:order-1">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -187,21 +198,21 @@
       </div>
     </aside>
 
-    <section class="flex-1 w-full bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-8 flex flex-col items-center print-page">
+    <section class="flex-1 w-full bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-6 lg:p-8 flex flex-col items-center print-page order-1 lg:order-2 overflow-hidden">
       
       <!-- Classroom title banner (visible in print too) -->
-      <div class="w-full flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+      <div class="w-full flex items-center justify-between mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-200">
         <div>
-          <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Classroom Layout</span>
-          <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">우리 반 좌석 배치도 (18석)</h2>
+          <span class="text-[10px] sm:text-xs font-semibold text-indigo-600 uppercase tracking-wider">Classroom Layout</span>
+          <h2 class="text-lg sm:text-2xl font-bold text-slate-900 mt-0.5">우리 반 좌석 배치도 (18석)</h2>
         </div>
-        <div class="text-right text-xs text-slate-400">
+        <div class="text-right text-[11px] sm:text-xs text-slate-400">
           <span id="currentDateDisplay"></span>
         </div>
       </div>
 
       <!-- Dynamic Classroom Container (Orientation: Blackboard at Bottom by default) -->
-      <div id="classroomArena" class="w-full flex flex-col items-center gap-6">
+      <div id="classroomArena" class="w-full flex flex-col items-center gap-4 sm:gap-6">
 
         <!-- Classroom Back Indicator (At top when blackboard is at bottom) -->
         <div id="classroomBackSection" class="w-full max-w-md pb-2 text-center text-xs text-slate-400 border-b border-slate-200 flex items-center justify-center gap-4">
@@ -211,54 +222,56 @@
           </span>
         </div>
 
-        <!-- 3 Columns (분단 1, 2, 3) each holding 3 rows of 2 paired desks -->
-        <div id="columnsContainer" class="w-full flex flex-col lg:flex-row justify-center gap-6 xl:gap-8 items-stretch pt-2">
-          
-          <!-- Column 1 (1분단) -->
-          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                <span class="text-xs font-bold text-slate-700">1 분단 (창가측)</span>
+        <!-- 3 Columns (1, 2, 3분단) 유지: 모바일에서도 가로 3분단 구조가 깨지지 않도록 가로 스크롤 & 고정 그리드 제공 -->
+        <div class="w-full overflow-x-auto pb-2 -mx-1 px-1 sm:mx-0 sm:px-0 scrollbar-thin">
+          <div id="columnsContainer" class="min-w-[560px] md:min-w-0 w-full grid grid-cols-3 gap-2 sm:gap-4 lg:gap-6 items-stretch pt-1">
+            
+            <!-- Column 1 (1분단) -->
+            <div class="bg-slate-50/70 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/90 flex flex-col gap-2 sm:gap-3">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                <div class="flex items-center gap-1.5 sm:gap-2 truncate">
+                  <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-blue-500 shrink-0"></span>
+                  <span class="text-[11px] sm:text-xs font-bold text-slate-700 truncate">1분단 (창가)</span>
+                </div>
+                <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium shrink-0">6석</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-medium">6석</span>
-            </div>
-            <!-- Rows in Column 1 -->
-            <div class="flex flex-col gap-3" id="column-1">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
-
-          <!-- Column 2 (2분단) -->
-          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                <span class="text-xs font-bold text-slate-700">2 분단 (중앙)</span>
+              <!-- Rows in Column 1 -->
+              <div class="flex flex-col gap-2 sm:gap-3" id="column-1">
+                <!-- Rendered via JS -->
               </div>
-              <span class="text-[11px] text-slate-400 font-medium">6석</span>
             </div>
-            <!-- Rows in Column 2 -->
-            <div class="flex flex-col gap-3" id="column-2">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
 
-          <!-- Column 3 (3분단) -->
-          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
-                <span class="text-xs font-bold text-slate-700">3 분단 (복도측)</span>
+            <!-- Column 2 (2분단) -->
+            <div class="bg-slate-50/70 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/90 flex flex-col gap-2 sm:gap-3">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                <div class="flex items-center gap-1.5 sm:gap-2 truncate">
+                  <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-indigo-500 shrink-0"></span>
+                  <span class="text-[11px] sm:text-xs font-bold text-slate-700 truncate">2분단 (중앙)</span>
+                </div>
+                <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium shrink-0">6석</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-medium">6석</span>
+              <!-- Rows in Column 2 -->
+              <div class="flex flex-col gap-2 sm:gap-3" id="column-2">
+                <!-- Rendered via JS -->
+              </div>
             </div>
-            <!-- Rows in Column 3 -->
-            <div class="flex flex-col gap-3" id="column-3">
-              <!-- Rendered via JS -->
-            </div>
-          </div>
 
+            <!-- Column 3 (3분단) -->
+            <div class="bg-slate-50/70 p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200/90 flex flex-col gap-2 sm:gap-3">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                <div class="flex items-center gap-1.5 sm:gap-2 truncate">
+                  <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-violet-500 shrink-0"></span>
+                  <span class="text-[11px] sm:text-xs font-bold text-slate-700 truncate">3분단 (복도)</span>
+                </div>
+                <span class="text-[10px] sm:text-[11px] text-slate-400 font-medium shrink-0">6석</span>
+              </div>
+              <!-- Rows in Column 3 -->
+              <div class="flex flex-col gap-2 sm:gap-3" id="column-3">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
+
+          </div>
         </div>
 
         <!-- BLACKBOARD / TEACHER DESK AREA (Default at Bottom) -->
@@ -453,14 +466,14 @@
           const rightSeat = seats.find(s => s.col === col && s.row === row && s.desk === 2);
 
           colHtml += `
-            <div class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
-              <div class="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1.5 px-1">
+            <div class="bg-white/90 p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl border border-slate-200/80 shadow-2xs">
+              <div class="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 font-medium mb-1 sm:mb-1.5 px-0.5 sm:px-1">
                 <span>${row}번째 줄 ${row === 1 ? '<span class="text-indigo-600 font-bold">(앞줄)</span>' : (row === 3 ? '<span class="text-slate-500">(뒷줄)</span>' : '')}</span>
-                <span class="text-[10px] text-slate-300">2인 짝</span>
+                <span class="text-[9px] sm:text-[10px] text-slate-300">2인 짝</span>
               </div>
-              <div class="grid grid-cols-2 gap-2">
-                ${buildSeatCard(leftSeat, "왼쪽")}
-                ${buildSeatCard(rightSeat, "오른쪽")}
+              <div class="grid grid-cols-2 gap-1.5 sm:gap-2">
+                ${buildSeatCard(leftSeat, "좌")}
+                ${buildSeatCard(rightSeat, "우")}
               </div>
             </div>
           `;
@@ -481,29 +494,29 @@
         <div id="seat-${seat.id}" 
              data-seat-id="${seat.id}" 
              draggable="${hasStudent}"
-             class="seat-card relative group rounded-xl p-2.5 border transition-all duration-150 select-none flex flex-col justify-between min-h-[82px] cursor-pointer
+             class="seat-card relative group rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border transition-all duration-150 select-none flex flex-col justify-between min-h-[70px] sm:min-h-[82px] cursor-pointer
                     ${isSelected ? 'selected-seat' : ''}
                     ${hasStudent 
                       ? 'bg-gradient-to-br from-indigo-50/50 to-white border-indigo-200 shadow-2xs hover:border-indigo-400 hover:shadow-xs' 
                       : 'bg-slate-50/70 border-dashed border-slate-300 hover:border-indigo-300 hover:bg-indigo-50/20'}">
           
           <!-- Top Row: Desk tag & Lock pin button -->
-          <div class="flex items-center justify-between gap-1">
-            <span class="text-[10px] font-semibold text-slate-400">
+          <div class="flex items-center justify-between gap-0.5">
+            <span class="text-[9px] sm:text-[10px] font-semibold text-slate-400">
               #${seat.number} ${positionLabel}
             </span>
-            <div class="flex items-center gap-1">
+            <div class="flex items-center gap-0.5">
               ${hasStudent ? `
                 <button title="${isLocked ? '고정 해제' : '자리 고정'}" 
                         data-action="toggle-lock" 
                         data-seat-id="${seat.id}"
-                        class="p-0.5 rounded text-xs transition ${isLocked ? 'text-amber-600 font-bold' : 'text-slate-300 hover:text-slate-500 opacity-60 group-hover:opacity-100'}">
+                        class="p-0.5 rounded text-[11px] sm:text-xs transition ${isLocked ? 'text-amber-600 font-bold' : 'text-slate-300 hover:text-slate-500 opacity-60 group-hover:opacity-100'}">
                   ${isLocked ? '📌' : '📍'}
                 </button>
                 <button title="자리 비우기" 
                         data-action="remove-student" 
                         data-seat-id="${seat.id}"
-                        class="p-0.5 text-[10px] text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition">
+                        class="p-0.5 text-[9px] sm:text-[10px] text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition">
                   ✕
                 </button>
               ` : ''}
@@ -511,18 +524,18 @@
           </div>
 
           <!-- Center: Student Name or Place Prompt -->
-          <div class="my-1 flex items-center justify-center text-center">
+          <div class="my-0.5 sm:my-1 flex items-center justify-center text-center">
             ${hasStudent 
-              ? `<span class="font-bold text-slate-800 text-sm tracking-tight truncate w-full" title="${seat.student}">${seat.student}</span>` 
-              : `<span class="text-[11px] text-slate-400 group-hover:text-indigo-600 font-medium flex items-center gap-1">
-                   <span class="text-xs">+</span> 지정하기
+              ? `<span class="seat-student-name font-bold text-slate-800 text-xs sm:text-sm tracking-tight truncate w-full" title="${seat.student}">${seat.student}</span>` 
+              : `<span class="text-[10px] sm:text-[11px] text-slate-400 group-hover:text-indigo-600 font-medium flex items-center gap-0.5">
+                   <span class="text-xs">+</span> 지정
                  </span>`}
           </div>
 
           <!-- Bottom: Status Badge -->
-          <div class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-100/60">
+          <div class="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-400 pt-0.5 sm:pt-1 border-t border-slate-100/60">
             <span>${seat.col}분단 ${seat.row}열</span>
-            ${isLocked ? '<span class="text-amber-600 font-semibold">고정됨</span>' : ''}
+            ${isLocked ? '<span class="text-amber-600 font-semibold">고정</span>' : ''}
           </div>
         </div>
       `;
