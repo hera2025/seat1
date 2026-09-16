@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>교실 좌석표 배정 프로그램 (18인석)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tone.js for clean auditory feedback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <!-- html2pdf.js for direct PDF download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Google Fonts (Pretendard-like Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Pretendard', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    /* Smooth transitions & custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Print styling optimized for A4 landscape/portrait */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-page {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 10px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .seat-card {
+        border: 2px solid #334155 !important;
+        box-shadow: none !important;
+      }
+    }
+
+    /* Dragging effects */
+    .dragging {
+      opacity: 0.45;
+      transform: scale(0.96);
+    }
+    .drag-over {
+      outline: 2px dashed #3b82f6;
+      outline-offset: -2px;
+      background-color: #eff6ff !important;
+    }
+    .selected-seat {
+      outline: 3px solid #6366f1;
+      background-color: #e0e7ff !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-700">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight">교실 18인 좌석표 배정 시스템</h1>
+          <p class="text-xs text-slate-500 font-medium">2인 짝꿍 책상 × 3개 분단 × 3줄 (총 18석)</p>
+        </div>
+      </div>
+
+      <!-- Action buttons in header -->
+      <div class="flex items-center gap-2">
+        <button id="viewToggleBtn" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+          </svg>
+          <span id="viewModeLabel">칠판/교탁: 아래 (교탁 기준)</span>
+        </button>
+
+        <button id="randomShuffleBtn" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>랜덤 배치</span>
+        </button>
+
+        <!-- PDF 저장 버튼 -->
+        <button id="downloadPdfBtn" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition active:scale-95">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>PDF 저장</span>
+        </button>
+
+        <!-- 이미지(PNG) 저장 버튼 -->
+        <button id="downloadImgBtn" class="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <span>이미지 저장</span>
+        </button>
+
+        <button id="printBtn" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+          </svg>
+          <span>인쇄하기</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col lg:flex-row gap-6 items-start">
+    
+    <!-- LEFT SIDEBAR: Student Management & Input Panel (no-print) -->
+    <aside class="w-full lg:w-80 flex-shrink-0 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col gap-5 no-print">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h2 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <span>학생 명단 관리</span>
+            <span id="studentCountBadge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600 border border-indigo-100">18명</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">이름을 줄바꿈 또는 쉼표로 입력하세요.</p>
+        </div>
+      </div>
+
+      <!-- Quick Edit Textarea -->
+      <div class="flex flex-col gap-2">
+        <label for="nameInputArea" class="text-xs font-semibold text-slate-600 flex justify-between items-center">
+          <span>명단 일괄 입력</span>
+          <button id="resetToDefaultBtn" class="text-xs text-indigo-600 hover:text-indigo-800 underline">예시 이름 채우기</button>
+        </label>
+        <textarea id="nameInputArea" rows="6" class="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition resize-none leading-relaxed text-slate-700" placeholder="1번 홍길동&#10;2번 김철수&#10;3번 이영희..."></textarea>
+        <button id="applyNamesBtn" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition active:scale-[0.99]">
+          명단 적용 및 동기화
+        </button>
+      </div>
+
+      <!-- Unassigned Pool & Helper -->
+      <div class="flex flex-col gap-2.5 pt-2 border-t border-slate-100">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-600">미배치 학생 목록</span>
+          <span id="unassignedCount" class="text-xs text-slate-400 font-medium">0명 대기</span>
+        </div>
+        
+        <div id="unassignedList" class="min-h-[90px] max-h-48 overflow-y-auto p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-xl flex flex-wrap gap-1.5 items-start content-start">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Control Shortcuts -->
+      <div class="pt-3 border-t border-slate-100 flex flex-col gap-2">
+        <button id="clearAllSeatsBtn" class="w-full py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-semibold transition">
+          좌석 모두 비우기
+        </button>
+        <div class="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-900 text-[11px] leading-relaxed flex flex-col gap-1">
+          <p class="font-bold flex items-center gap-1 text-indigo-700">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            교사 맞춤 조작 팁
+          </p>
+          <p>• <strong>직접 지정:</strong> 빈 좌석을 클릭하거나 학생 이름을 드래그하여 배치합니다.</p>
+          <p>• <strong>자리 교체:</strong> 배정된 좌석끼리 드래그하거나 순서대로 클릭하면 서로 바뀝니다.</p>
+          <p>• <strong>자리 고정:</strong> 좌석 우측 상단 핀(📌)을 누르면 랜덤 배치 시에도 유지됩니다.</p>
+        </div>
+      </div>
+    </aside>
+
+    <section class="flex-1 w-full bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-8 flex flex-col items-center print-page">
+      
+      <!-- Classroom title banner (visible in print too) -->
+      <div class="w-full flex items-center justify-between mb-6 pb-4 border-b border-slate-200">
+        <div>
+          <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Classroom Layout</span>
+          <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">우리 반 좌석 배치도 (18석)</h2>
+        </div>
+        <div class="text-right text-xs text-slate-400">
+          <span id="currentDateDisplay"></span>
+        </div>
+      </div>
+
+      <!-- Dynamic Classroom Container (Orientation: Blackboard at Bottom by default) -->
+      <div id="classroomArena" class="w-full flex flex-col items-center gap-6">
+
+        <!-- Classroom Back Indicator (At top when blackboard is at bottom) -->
+        <div id="classroomBackSection" class="w-full max-w-md pb-2 text-center text-xs text-slate-400 border-b border-slate-200 flex items-center justify-center gap-4">
+          <span class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+            [ 뒷문 / 사물함 방향 ]
+          </span>
+        </div>
+
+        <!-- 3 Columns (분단 1, 2, 3) each holding 3 rows of 2 paired desks -->
+        <div id="columnsContainer" class="w-full flex flex-col lg:flex-row justify-center gap-6 xl:gap-8 items-stretch pt-2">
+          
+          <!-- Column 1 (1분단) -->
+          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span class="text-xs font-bold text-slate-700">1 분단 (창가측)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-medium">6석</span>
+            </div>
+            <!-- Rows in Column 1 -->
+            <div class="flex flex-col gap-3" id="column-1">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Column 2 (2분단) -->
+          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                <span class="text-xs font-bold text-slate-700">2 분단 (중앙)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-medium">6석</span>
+            </div>
+            <!-- Rows in Column 2 -->
+            <div class="flex flex-col gap-3" id="column-2">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Column 3 (3분단) -->
+          <div class="flex-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/90 flex flex-col gap-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
+                <span class="text-xs font-bold text-slate-700">3 분단 (복도측)</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-medium">6석</span>
+            </div>
+            <!-- Rows in Column 3 -->
+            <div class="flex flex-col gap-3" id="column-3">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BLACKBOARD / TEACHER DESK AREA (Default at Bottom) -->
+        <div id="blackboardSection" class="w-full max-w-2xl flex flex-col items-center gap-2 pt-3 border-t border-slate-200 transition-all duration-300">
+          
+          <!-- Teacher's Podium (Closer to students) -->
+          <div id="teacherPodiumEl" class="w-40 py-2 bg-amber-100 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold text-center shadow-xs flex items-center justify-center gap-1.5">
+            <span>🧑‍🏫 교 탁</span>
+            <button id="inlineFlipBtn" title="위아래 시점 반전" class="ml-1 p-0.5 rounded hover:bg-amber-200 text-amber-800 text-[10px] transition">
+              🔄
+            </button>
+          </div>
+
+          <!-- Blackboard (Wall boundary) -->
+          <div id="blackboardBoardEl" class="w-full bg-emerald-800 text-emerald-100 rounded-xl py-3 px-6 text-center font-bold tracking-widest text-sm shadow-inner border-2 border-emerald-900 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            <span>[ 칠 판 ]</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-lg text-xs font-medium flex items-center gap-2">
+    <span id="toastIcon">✨</span>
+    <span id="toastMsg">알림 메시지</span>
+  </div>
+
+  <!-- Direct Student Assignment Modal -->
+  <div id="assignModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center hidden p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl border border-slate-200 p-5 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm" id="modalSeatTitle">좌석 배정</h3>
+          <p class="text-xs text-slate-500">배정할 학생을 선택하거나 직접 입력하세요.</p>
+        </div>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
+      </div>
+
+      <!-- Quick manual input -->
+      <div class="flex gap-2">
+        <input type="text" id="modalCustomInput" placeholder="이름 직접 입력..." class="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+        <button id="modalCustomSubmitBtn" class="px-3 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition">지정</button>
+      </div>
+
+      <!-- Or pick from unassigned -->
+      <div class="flex flex-col gap-2">
+        <span class="text-xs font-semibold text-slate-600">명단에서 선택:</span>
+        <div id="modalStudentList" class="max-h-44 overflow-y-auto flex flex-col gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-200/80">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <button id="modalClearSeatBtn" class="text-xs text-rose-600 hover:underline">이 자리 비우기</button>
+        <button id="modalCancelBtn" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial 18 default student roster
+    const DEFAULT_STUDENTS = [
+      "1. 강민준", "2. 고서연", "3. 김도윤", "4. 김서아", 
+      "5. 박예준", "6. 박지우", "7. 배하은", "8. 서우진", 
+      "9. 송유진", "10. 신시우", "11. 안채원", "12. 유수아", 
+      "13. 이준서", "14. 이지안", "15. 정다은", "16. 조현우", 
+      "17. 최수현", "18. 한도현"
+    ];
+
+    // Total 18 seats: 3 Columns, each having 3 Rows, each having 2 desks (Left, Right)
+    let seats = [];
+    let studentPool = [...DEFAULT_STUDENTS];
+    // isBlackboardBottom: true = 칠판/교탁이 아래쪽 (교탁 시점), false = 칠판/교탁이 위쪽
+    let isBlackboardBottom = true;
+    let selectedSeatId = null; // For click-to-swap selection
+    let draggedData = null; // For drag and drop
+
+    // Web Audio synthesizer via Tone.js for tactile feedback
+    let synth = null;
+    function playBeep(pitch = "C5", duration = "16n") {
+      try {
+        if (!synth && window.Tone) {
+          synth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1 }
+          }).toDestination();
+          synth.volume.value = -12;
+        }
+        if (synth && Tone.context.state === 'running') {
+          synth.triggerAttackRelease(pitch, duration);
+        }
+      } catch (e) {
+        // Fallback gracefully without breaking
+      }
+    }
+
+    function initializeSeats() {
+      seats = [];
+      let seatNumber = 1;
+      for (let col = 1; col <= 3; col++) {
+        for (let row = 1; row <= 3; row++) {
+          for (let desk = 1; desk <= 2; desk++) {
+            seats.push({
+              id: `c${col}-r${row}-d${desk}`,
+              number: seatNumber++,
+              col: col,
+              row: row,
+              desk: desk,
+              student: null,
+              locked: false
+            });
+          }
+        }
+      }
+    }
+
+    function updateStudentPoolFromInput() {
+      const text = document.getElementById('nameInputArea').value;
+      const lines = text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+      
+      studentPool = lines.length > 0 ? lines : [...DEFAULT_STUDENTS];
+      document.getElementById('studentCountBadge').textContent = `${studentPool.length}명`;
+      
+      // Clean up seats if students were removed completely from pool
+      seats.forEach(seat => {
+        if (seat.student && !studentPool.includes(seat.student)) {
+          seat.student = null;
+          seat.locked = false;
+        }
+      });
+
+      renderClassroom();
+      renderUnassignedList();
+      showToast("학생 명단이 업데이트되었습니다.", "📋");
+    }
+
+    function renderUnassignedList() {
+      const assignedNames = new Set(seats.map(s => s.student).filter(Boolean));
+      const unassigned = studentPool.filter(name => !assignedNames.has(name));
+      
+      const countEl = document.getElementById('unassignedCount');
+      const listEl = document.getElementById('unassignedList');
+      countEl.textContent = `${unassigned.length}명 대기`;
+
+      if (unassigned.length === 0) {
+        listEl.innerHTML = '<div class="text-[11px] text-slate-400 py-3 text-center w-full">모든 학생이 배정되었습니다 🎉</div>';
+        return;
+      }
+
+      listEl.innerHTML = unassigned.map(name => `
+        <div draggable="true" 
+             data-student="${name}"
+             class="student-chip cursor-grab active:cursor-grabbing px-2.5 py-1 bg-white border border-slate-200 hover:border-indigo-400 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs hover:shadow-xs transition flex items-center gap-1.5 select-none">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>${name}</span>
+        </div>
+      `).join('');
+
+      // Add drag listeners to chips
+      listEl.querySelectorAll('.student-chip').forEach(chip => {
+        chip.addEventListener('dragstart', (e) => {
+          draggedData = { type: 'unassigned', student: chip.getAttribute('data-student') };
+          chip.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', chip.getAttribute('data-student'));
+        });
+        chip.addEventListener('dragend', () => {
+          chip.classList.remove('dragging');
+          draggedData = null;
+        });
+      });
+    }
+
+    function renderClassroom() {
+      // Determine row ordering based on blackboard location:
+      // When blackboard is at bottom, Row 3 is at the top and Row 1 is at the bottom (closest to 교탁/칠판)
+      // When blackboard is at top, Row 1 is at the top and Row 3 is at the bottom
+      const rowOrder = isBlackboardBottom ? [3, 2, 1] : [1, 2, 3];
+
+      // Loop columns 1 to 3
+      for (let col = 1; col <= 3; col++) {
+        const colContainer = document.getElementById(`column-${col}`);
+        if (!colContainer) continue;
+
+        let colHtml = '';
+        for (const row of rowOrder) {
+          const leftSeat = seats.find(s => s.col === col && s.row === row && s.desk === 1);
+          const rightSeat = seats.find(s => s.col === col && s.row === row && s.desk === 2);
+
+          colHtml += `
+            <div class="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-1.5 px-1">
+                <span>${row}번째 줄 ${row === 1 ? '<span class="text-indigo-600 font-bold">(앞줄)</span>' : (row === 3 ? '<span class="text-slate-500">(뒷줄)</span>' : '')}</span>
+                <span class="text-[10px] text-slate-300">2인 짝</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                ${buildSeatCard(leftSeat, "왼쪽")}
+                ${buildSeatCard(rightSeat, "오른쪽")}
+              </div>
+            </div>
+          `;
+        }
+        colContainer.innerHTML = colHtml;
+      }
+
+      attachSeatEventListeners();
+    }
+
+    function buildSeatCard(seat, positionLabel) {
+      if (!seat) return '';
+      const hasStudent = Boolean(seat.student);
+      const isSelected = selectedSeatId === seat.id;
+      const isLocked = seat.locked;
+
+      return `
+        <div id="seat-${seat.id}" 
+             data-seat-id="${seat.id}" 
+             draggable="${hasStudent}"
+             class="seat-card relative group rounded-xl p-2.5 border transition-all duration-150 select-none flex flex-col justify-between min-h-[82px] cursor-pointer
+                    ${isSelected ? 'selected-seat' : ''}
+                    ${hasStudent 
+                      ? 'bg-gradient-to-br from-indigo-50/50 to-white border-indigo-200 shadow-2xs hover:border-indigo-400 hover:shadow-xs' 
+                      : 'bg-slate-50/70 border-dashed border-slate-300 hover:border-indigo-300 hover:bg-indigo-50/20'}">
+          
+          <!-- Top Row: Desk tag & Lock pin button -->
+          <div class="flex items-center justify-between gap-1">
+            <span class="text-[10px] font-semibold text-slate-400">
+              #${seat.number} ${positionLabel}
+            </span>
+            <div class="flex items-center gap-1">
+              ${hasStudent ? `
+                <button title="${isLocked ? '고정 해제' : '자리 고정'}" 
+                        data-action="toggle-lock" 
+                        data-seat-id="${seat.id}"
+                        class="p-0.5 rounded text-xs transition ${isLocked ? 'text-amber-600 font-bold' : 'text-slate-300 hover:text-slate-500 opacity-60 group-hover:opacity-100'}">
+                  ${isLocked ? '📌' : '📍'}
+                </button>
+                <button title="자리 비우기" 
+                        data-action="remove-student" 
+                        data-seat-id="${seat.id}"
+                        class="p-0.5 text-[10px] text-slate-300 hover:text-rose-500 rounded opacity-0 group-hover:opacity-100 transition">
+                  ✕
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Center: Student Name or Place Prompt -->
+          <div class="my-1 flex items-center justify-center text-center">
+            ${hasStudent 
+              ? `<span class="font-bold text-slate-800 text-sm tracking-tight truncate w-full" title="${seat.student}">${seat.student}</span>` 
+              : `<span class="text-[11px] text-slate-400 group-hover:text-indigo-600 font-medium flex items-center gap-1">
+                   <span class="text-xs">+</span> 지정하기
+                 </span>`}
+          </div>
+
+          <!-- Bottom: Status Badge -->
+          <div class="flex items-center justify-between text-[9px] text-slate-400 pt-1 border-t border-slate-100/60">
+            <span>${seat.col}분단 ${seat.row}열</span>
+            ${isLocked ? '<span class="text-amber-600 font-semibold">고정됨</span>' : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function attachSeatEventListeners() {
+      const seatCards = document.querySelectorAll('.seat-card');
+
+      seatCards.forEach(card => {
+        const seatId = card.getAttribute('data-seat-id');
+        const seat = seats.find(s => s.id === seatId);
+
+        // Click Handler (Direct click or Swap selection)
+        card.addEventListener('click', (e) => {
+          // Check action buttons first
+          const actionBtn = e.target.closest('button[data-action]');
+          if (actionBtn) {
+            const action = actionBtn.getAttribute('data-action');
+            if (action === 'toggle-lock') {
+              toggleLockSeat(seatId);
+            } else if (action === 'remove-student') {
+              removeStudentFromSeat(seatId);
+            }
+            return;
+          }
+
+          handleSeatClick(seatId);
+        });
+
+        // HTML5 Drag and Drop Handlers
+        card.addEventListener('dragstart', (e) => {
+          if (!seat || !seat.student) return;
+          draggedData = { type: 'seat', fromSeatId: seat.id, student: seat.student };
+          card.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', seat.student);
+        });
+
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          draggedData = null;
+        });
+
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          card.classList.add('drag-over');
+        });
+
+        card.addEventListener('dragleave', () => {
+          card.classList.remove('drag-over');
+        });
+
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          card.classList.remove('drag-over');
+          handleDropOnSeat(seatId);
+        });
+      });
+    }
+
+    function handleSeatClick(seatId) {
+      const targetSeat = seats.find(s => s.id === seatId);
+      if (!targetSeat) return;
+
+      // If another seat is currently selected, execute a swap!
+      if (selectedSeatId) {
+        if (selectedSeatId === seatId) {
+          // Deselect
+          selectedSeatId = null;
+          renderClassroom();
+          return;
+        }
+
+        // Swap seats
+        swapSeats(selectedSeatId, seatId);
+        selectedSeatId = null;
+        renderClassroom();
+        renderUnassignedList();
+        playBeep("G4", "8n");
+        showToast("두 자리의 학생을 서로 맞바꾸었습니다.", "🔄");
+        return;
+      }
+
+      // If clicked on an occupied seat with Shift or simply wants to swap, or open assignment modal
+      if (!targetSeat.student) {
+        // Open assignment modal for empty seat
+        openAssignModal(seatId);
+      } else {
+        // Seat already has student: Ask if user wants to swap or change
+        selectedSeatId = seatId;
+        renderClassroom();
+        playBeep("E5", "16n");
+        showToast(`'${targetSeat.student}' 선택됨. 맞바꿀 다른 자리를 클릭하세요.`, "👆");
+      }
+    }
+
+    function handleDropOnSeat(targetSeatId) {
+      if (!draggedData) return;
+      const targetSeat = seats.find(s => s.id === targetSeatId);
+      if (!targetSeat) return;
+
+      if (draggedData.type === 'unassigned') {
+        // Drop unassigned student into seat
+        const studentName = draggedData.student;
+        // If seat was occupied, existing student goes to unassigned
+        targetSeat.student = studentName;
+        playBeep("C5", "16n");
+        showToast(`${studentName} 학생을 배치했습니다.`, "📍");
+      } else if (draggedData.type === 'seat') {
+        const fromSeat = seats.find(s => s.id === draggedData.fromSeatId);
+        if (fromSeat && fromSeat.id !== targetSeatId) {
+          // Swap students between two seats
+          const tempStudent = targetSeat.student;
+          const tempLock = targetSeat.locked;
+          targetSeat.student = fromSeat.student;
+          fromSeat.student = tempStudent;
+          playBeep("F5", "16n");
+          showToast("자리가 교체되었습니다.", "🔄");
+        }
+      }
+
+      renderClassroom();
+      renderUnassignedList();
+    }
+
+    function swapSeats(seatIdA, seatIdB) {
+      const a = seats.find(s => s.id === seatIdA);
+      const b = seats.find(s => s.id === seatIdB);
+      if (!a || !b) return;
+
+      const tempStudent = a.student;
+      a.student = b.student;
+      b.student = tempStudent;
+    }
+
+    function toggleLockSeat(seatId) {
+      const seat = seats.find(s => s.id === seatId);
+      if (!seat || !seat.student) return;
+      seat.locked = !seat.locked;
+      playBeep(seat.locked ? "A5" : "D5", "32n");
+      showToast(seat.locked ? `'${seat.student}' 자리가 고정되었습니다.` : "고정이 해제되었습니다.", seat.locked ? "📌" : "🔓");
+      renderClassroom();
+    }
+
+    function removeStudentFromSeat(seatId) {
+      const seat = seats.find(s => s.id === seatId);
+      if (!seat) return;
+      seat.student = null;
+      seat.locked = false;
+      renderClassroom();
+      renderUnassignedList();
+      showToast("좌석을 비웠습니다.", "🗑️");
+    }
+
+    function shuffleSeats() {
+      // Collect students who are NOT locked in their current seats
+      const lockedSeatStudentNames = new Set();
+      seats.forEach(s => {
+        if (s.locked && s.student) {
+          lockedSeatStudentNames.add(s.student);
+        }
+      });
+
+      // All students eligible to be moved
+      const eligibleStudents = studentPool.filter(name => !lockedSeatStudentNames.has(name));
+      
+      // Shuffle array with Fisher-Yates
+      for (let i = eligibleStudents.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [eligibleStudents[i], eligibleStudents[j]] = [eligibleStudents[j], eligibleStudents[i]];
+      }
+
+      // Fill into unlocked seats
+      let studentIdx = 0;
+      seats.forEach(seat => {
+        if (!seat.locked) {
+          if (studentIdx < eligibleStudents.length) {
+            seat.student = eligibleStudents[studentIdx++];
+          } else {
+            seat.student = null;
+          }
+        }
+      });
+
+      selectedSeatId = null;
+      renderClassroom();
+      renderUnassignedList();
+
+      playBeep("C5", "16n");
+      setTimeout(() => playBeep("G5", "8n"), 100);
+      showToast("고정된 좌석을 제외하고 랜덤 배치가 완료되었습니다!", "🎲");
+    }
+
+    let currentModalSeatId = null;
+
+    function openAssignModal(seatId) {
+      currentModalSeatId = seatId;
+      const seat = seats.find(s => s.id === seatId);
+      if (!seat) return;
+
+      document.getElementById('modalSeatTitle').textContent = `${seat.col}분단 ${seat.row}줄 (${seat.desk === 1 ? '왼쪽' : '오른쪽'}) 좌석 지정`;
+      document.getElementById('modalCustomInput').value = seat.student || '';
+
+      // Populate unassigned list in modal
+      const assignedNames = new Set(seats.map(s => s.student).filter(Boolean));
+      const unassigned = studentPool.filter(name => !assignedNames.has(name));
+      const listContainer = document.getElementById('modalStudentList');
+
+      if (unassigned.length === 0) {
+        listContainer.innerHTML = '<div class="text-xs text-slate-400 p-2 text-center">대기 중인 학생이 없습니다.</div>';
+      } else {
+        listContainer.innerHTML = unassigned.map(name => `
+          <button type="button" data-pick-student="${name}" 
+                  class="text-left px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-lg transition flex items-center justify-between border border-transparent hover:border-indigo-200">
+            <span>${name}</span>
+            <span class="text-[10px] text-indigo-500">배정하기 &rarr;</span>
+          </button>
+        `).join('');
+
+        listContainer.querySelectorAll('[data-pick-student]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const studentName = btn.getAttribute('data-pick-student');
+            seat.student = studentName;
+            closeModal();
+            renderClassroom();
+            renderUnassignedList();
+            playBeep("E5", "16n");
+            showToast(`${studentName} 학생이 배정되었습니다.`, "✅");
+          });
+        });
+      }
+
+      document.getElementById('assignModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('assignModal').classList.add('hidden');
+      currentModalSeatId = null;
+    }
+
+    let toastTimeout = null;
+    function showToast(message, icon = "💡") {
+      const toast = document.getElementById('toast');
+      const msgEl = document.getElementById('toastMsg');
+      const iconEl = document.getElementById('toastIcon');
+
+      msgEl.textContent = message;
+      iconEl.textContent = icon;
+
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+
+    function toggleViewOrientation() {
+      isBlackboardBottom = !isBlackboardBottom;
+      const arena = document.getElementById('classroomArena');
+      const blackboard = document.getElementById('blackboardSection');
+      const back = document.getElementById('classroomBackSection');
+      const label = document.getElementById('viewModeLabel');
+      const podium = document.getElementById('teacherPodiumEl');
+      const board = document.getElementById('blackboardBoardEl');
+
+      if (isBlackboardBottom) {
+        // 칠판/교탁이 아래쪽: [사물함/뒷문] -> [책상들] -> [교탁] -> [칠판]
+        arena.appendChild(blackboard);
+        arena.insertBefore(back, arena.children[0]);
+        // 교탁이 책상 쪽(위), 칠판이 벽면 쪽(아래)
+        blackboard.insertBefore(podium, board);
+        blackboard.classList.remove('pb-3', 'border-b');
+        blackboard.classList.add('pt-3', 'border-t');
+        back.classList.remove('pt-2', 'border-t');
+        back.classList.add('pb-2', 'border-b');
+
+        label.textContent = "칠판/교탁: 아래 (교탁 기준)";
+        showToast("칠판과 교탁을 아래쪽으로 배치했습니다. (교탁 기준 시점)", "🔄");
+      } else {
+        // 칠판/교탁이 위쪽: [칠판] -> [교탁] -> [책상들] -> [사물함/뒷문]
+        arena.insertBefore(blackboard, arena.children[0]);
+        arena.appendChild(back);
+        // 칠판이 벽면 쪽(위), 교탁이 책상 쪽(아래)
+        blackboard.insertBefore(board, podium);
+        blackboard.classList.remove('pt-3', 'border-t');
+        blackboard.classList.add('pb-3', 'border-b');
+        back.classList.remove('pb-2', 'border-b');
+        back.classList.add('pt-2', 'border-t');
+
+        label.textContent = "칠판/교탁: 위 (교실 정면)";
+        showToast("칠판과 교탁을 위쪽으로 배치했습니다. (교실 정면 시점)", "🔄");
+      }
+
+      playBeep("D5", "16n");
+      renderClassroom();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Display current date
+      const today = new Date();
+      document.getElementById('currentDateDisplay').textContent = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 기준`;
+
+      // Fill default text area
+      document.getElementById('nameInputArea').value = DEFAULT_STUDENTS.join('\n');
+
+      // Initialize seats
+      initializeSeats();
+
+      // Initial auto-fill of 18 students into 18 seats in sequential order
+      seats.forEach((seat, index) => {
+        if (index < DEFAULT_STUDENTS.length) {
+          seat.student = DEFAULT_STUDENTS[index];
+        }
+      });
+
+      renderClassroom();
+      renderUnassignedList();
+
+      // Hook up UI buttons
+      document.getElementById('applyNamesBtn').addEventListener('click', updateStudentPoolFromInput);
+      
+      document.getElementById('resetToDefaultBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('nameInputArea').value = DEFAULT_STUDENTS.join('\n');
+        updateStudentPoolFromInput();
+      });
+
+      document.getElementById('randomShuffleBtn').addEventListener('click', shuffleSeats);
+
+      document.getElementById('clearAllSeatsBtn').addEventListener('click', () => {
+        seats.forEach(s => {
+          s.student = null;
+          s.locked = false;
+        });
+        selectedSeatId = null;
+        renderClassroom();
+        renderUnassignedList();
+        playBeep("C4", "16n");
+        showToast("모든 좌석이 초기화되었습니다.", "🧹");
+      });
+
+      document.getElementById('viewToggleBtn').addEventListener('click', toggleViewOrientation);
+      const inlineFlip = document.getElementById('inlineFlipBtn');
+      if (inlineFlip) {
+        inlineFlip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleViewOrientation();
+        });
+      }
+
+      // Print button handler
+      document.getElementById('printBtn').addEventListener('click', () => {
+        window.print();
+      });
+
+      // PDF 저장 기능 (html2pdf.js 기반)
+      document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+        const printArea = document.querySelector('.print-page');
+        if (!printArea) return;
+
+        showToast("PDF 문서를 생성하는 중입니다...", "⏳");
+
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+        const filename = `교실_좌석배치표_18인_${dateStr}.pdf`;
+
+        const opt = {
+          margin:       [10, 10, 10, 10], // mm
+          filename:     filename,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+
+        if (window.html2pdf) {
+          html2pdf().set(opt).from(printArea).save().then(() => {
+            playBeep("G5", "16n");
+            showToast("PDF 저장이 완료되었습니다!", "📥");
+          }).catch(err => {
+            console.error(err);
+            showToast("PDF 생성 중 오류가 발생했습니다. '인쇄하기 > PDF로 저장'을 이용해보세요.", "⚠️");
+          });
+        } else {
+          // Fallback to print dialog (Save as PDF)
+          window.print();
+        }
+      });
+
+      // 이미지(PNG) 저장 기능
+      document.getElementById('downloadImgBtn').addEventListener('click', () => {
+        const printArea = document.querySelector('.print-page');
+        if (!printArea || !window.html2pdf) return;
+
+        showToast("이미지를 생성하는 중입니다...", "⏳");
+        
+        // Use html2canvas bundled inside html2pdf
+        html2canvas(printArea, { scale: 2 }).then(canvas => {
+          const link = document.createElement('a');
+          const today = new Date();
+          const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+          link.download = `교실_좌석배치표_18인_${dateStr}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          playBeep("A5", "16n");
+          showToast("이미지 저장이 완료되었습니다!", "🖼️");
+        }).catch(err => {
+          console.error(err);
+          showToast("이미지 생성에 실패했습니다.", "⚠️");
+        });
+      });
+
+      // Modal Handlers
+      document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+      document.getElementById('modalCancelBtn').addEventListener('click', closeModal);
+      
+      document.getElementById('modalClearSeatBtn').addEventListener('click', () => {
+        if (currentModalSeatId) {
+          removeStudentFromSeat(currentModalSeatId);
+          closeModal();
+        }
+      });
+
+      document.getElementById('modalCustomSubmitBtn').addEventListener('click', () => {
+        const val = document.getElementById('modalCustomInput').value.trim();
+        if (val && currentModalSeatId) {
+          const seat = seats.find(s => s.id === currentModalSeatId);
+          if (seat) {
+            seat.student = val;
+            if (!studentPool.includes(val)) {
+              studentPool.push(val);
+              document.getElementById('nameInputArea').value = studentPool.join('\n');
+              document.getElementById('studentCountBadge').textContent = `${studentPool.length}명`;
+            }
+            renderClassroom();
+            renderUnassignedList();
+            closeModal();
+            playBeep("E5", "16n");
+            showToast(`${val} 학생을 배정했습니다.`, "✍️");
+          }
+        }
+      });
+
+      // Close modal when pressing ESC or clicking backdrop
+      document.getElementById('assignModal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('assignModal')) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal();
+          if (selectedSeatId) {
+            selectedSeatId = null;
+            renderClassroom();
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
